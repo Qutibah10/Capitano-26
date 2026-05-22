@@ -303,92 +303,7 @@ lang_data = t[current_lang]
 # =========================================================
 # 4. Styling
 # =========================================================
-st.markdown(f"""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@600;900&family=Inter:wght@600;800;900&display=swap');
 
-html, body, [data-testid="stAppViewContainer"], .main {{
-    font-family: {"'Inter', 'Cairo', sans-serif" if current_lang == "EN" else "'Cairo', 'Inter', sans-serif"} !important;
-    background: radial-gradient(circle at top, #0c102b 0%, #04050f 100%) !important;
-    color: #f1f5f9 !important;
-    direction: {lang_data["dir"]} !important;
-}}
-
-.clean-logo {{
-    display: block;
-    margin: 0 auto;
-    max-width: 110px;
-    filter: drop-shadow(0px 0px 20px rgba(0, 255, 135, 0.4));
-}}
-
-.stTabs [data-baseweb="tab"] {{
-    font-size: 15px !important;
-    font-weight: 700 !important;
-    color: #64748b !important;
-}}
-
-.stTabs [aria-selected="true"] {{
-    color: #00FF87 !important;
-    border-bottom: 3px solid #00FF87 !important;
-}}
-
-.match-card {{
-    background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
-    border: 1px solid rgba(255,255,255,0.10);
-    padding: 18px;
-    border-radius: 18px;
-    margin-bottom: 14px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.22);
-}}
-
-.match-title {{
-    font-size: 22px;
-    font-weight: 900;
-    color: #ffffff;
-    margin-bottom: 8px;
-}}
-
-.match-meta {{
-    color: #94a3b8;
-    font-size: 13px;
-    margin-top: 4px;
-}}
-
-.prediction-box {{
-    margin-top: 12px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    background: rgba(0,255,135,0.08);
-    border: 1px solid rgba(0,255,135,0.18);
-    color: #e2e8f0;
-    font-size: 14px;
-}}
-
-.save-gap {{
-    margin-bottom: 22px;
-}}
-
-.status-pill {{
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: rgba(0,255,135,0.12);
-    color: #00FF87;
-    font-size: 12px;
-    font-weight: 800;
-}}
-
-.locked-pill {{
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: rgba(255,50,80,0.15);
-    color: #ff5470;
-    font-size: 12px;
-    font-weight: 800;
-}}
-</style>
-""", unsafe_allow_html=True)
 
 
 st.markdown(f"""
@@ -622,6 +537,15 @@ button[kind="primary"], .stButton > button {{
     font-size: 13px;
     line-height: 1.7;
     margin: 8px 0 14px 0;
+}}
+
+div[data-testid="InputInstructions"] {{
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -1194,6 +1118,7 @@ def status_display(status):
 
 
 def stage_display(stage):
+    return tr_stage(stage)
     stage = str(stage).strip().upper()
 
     stage_map = {
@@ -1693,24 +1618,83 @@ def tr_team(team_name):
 
 
 def tr_stage(stage):
-    stage = str(stage).upper().strip()
+    original_stage = str(stage).strip()
+    stage_key = original_stage.upper().strip()
 
-    if current_lang == "EN":
-        return stage
+    stage_names = {
+        "GROUP": {
+            "EN": "Group Stage",
+            "AR": "دور المجموعات"
+        },
 
-    stage_ar = {
-        "GROUP": "دور المجموعات",
-        "ROUND_OF_32": "دور الـ32",
-        "ROUND_OF_16": "دور الـ16",
-        "QUARTER_FINALS": "ربع النهائي",
-        "QUARTER_FINAL": "ربع النهائي",
-        "SEMI_FINALS": "نصف النهائي",
-        "SEMI_FINAL": "نصف النهائي",
-        "THIRD_PLACE": "تحديد المركز الثالث",
-        "FINAL": "النهائي",
+        "R32": {
+            "EN": "Round of 32",
+            "AR": "دور الـ32"
+        },
+        "ROUND_OF_32": {
+            "EN": "Round of 32",
+            "AR": "دور الـ32"
+        },
+        "LAST_32": {
+            "EN": "Round of 32",
+            "AR": "دور الـ32"
+        },
+
+        "R16": {
+            "EN": "Round of 16",
+            "AR": "دور الـ16"
+        },
+        "ROUND_OF_16": {
+            "EN": "Round of 16",
+            "AR": "دور الـ16"
+        },
+        "LAST_16": {
+            "EN": "Round of 16",
+            "AR": "دور الـ16"
+        },
+
+        "QF": {
+            "EN": "Quarter-final",
+            "AR": "ربع النهائي"
+        },
+        "QUARTER_FINAL": {
+            "EN": "Quarter-final",
+            "AR": "ربع النهائي"
+        },
+        "QUARTER_FINALS": {
+            "EN": "Quarter-final",
+            "AR": "ربع النهائي"
+        },
+
+        "SF": {
+            "EN": "Semi-final",
+            "AR": "نصف النهائي"
+        },
+        "SEMI_FINAL": {
+            "EN": "Semi-final",
+            "AR": "نصف النهائي"
+        },
+        "SEMI_FINALS": {
+            "EN": "Semi-final",
+            "AR": "نصف النهائي"
+        },
+
+        "THIRD": {
+            "EN": "Third-place match",
+            "AR": "مباراة المركز الثالث"
+        },
+        "THIRD_PLACE": {
+            "EN": "Third-place match",
+            "AR": "مباراة المركز الثالث"
+        },
+
+        "FINAL": {
+            "EN": "Final",
+            "AR": "النهائي"
+        },
     }
 
-    return stage_ar.get(stage, stage)
+    return stage_names.get(stage_key, {}).get(current_lang, original_stage)
 
 
 def tr_group(group_name):
@@ -3705,7 +3689,8 @@ try:
                         pos1_options,
                         index=pos1_index,
                         disabled=locked,
-                        key=f"group_{selected_group}_pos_1"
+                        key=f"group_{selected_group}_pos_1",
+                        format_func=lambda team: tr_team(team)
                     )
 
                     pos2_options = [team for team in teams if team != pos1]
@@ -3723,7 +3708,8 @@ try:
                         pos2_options,
                         index=pos2_index,
                         disabled=locked,
-                        key=f"group_{selected_group}_pos_2"
+                        key=f"group_{selected_group}_pos_2",
+                        format_func=lambda team: tr_team(team)
                     )
 
                     pos3_options = [team for team in teams if team not in [pos1, pos2]]
@@ -3741,7 +3727,8 @@ try:
                         pos3_options,
                         index=pos3_index,
                         disabled=locked,
-                        key=f"group_{selected_group}_pos_3"
+                        key=f"group_{selected_group}_pos_3",
+                        format_func=lambda team: tr_team(team)
                     )
                     
                     pos4_options = [team for team in teams if team not in [pos1, pos2, pos3]]
@@ -3759,7 +3746,8 @@ try:
                         pos4_options,
                         index=pos4_index,
                         disabled=locked,
-                        key=f"group_{selected_group}_pos_4"
+                        key=f"group_{selected_group}_pos_4",
+                        format_func=lambda team: tr_team(team)
                     )
 
                     ranking = [pos1, pos2, pos3, pos4]
@@ -3797,10 +3785,10 @@ try:
                                     
                             with row_cols[2]:
                                 st.markdown(
-                                    f"<h3 style='margin-top:6px; margin-bottom:0;'>{team}</h3>",
+                                    f"<h3 style='margin-top:6px; margin-bottom:0;'>{tr_team(team)}</h3>",
                                     unsafe_allow_html=True
                                 )
-
+        
                         st.caption(
                             "Ranking points are added only after the entire group stage is finished."
                             if current_lang == "EN"
@@ -3850,7 +3838,8 @@ try:
                 if current_lang == "EN"
                 else "## 💬 غرفة التحدي"
             )
-            
+
+            # تحديث تلقائي خفيف. 10 ثواني أفضل من 5 حتى لا يزيد الضغط على Google Sheets.
             st_autorefresh(
                 interval=10000,
                 key="banter_room_auto_refresh"
@@ -3862,6 +3851,9 @@ try:
                 else "مزح وتحديات كروية فقط. خليه ممتع ومحترم."
             )
 
+            # ===============================
+            # Send Message Box
+            # ===============================
             with st.container(border=True):
                 st.markdown(
                     "### ✍️ Send a message"
@@ -3869,92 +3861,102 @@ try:
                     else "### ✍️ اكتب رسالة"
                 )
 
-                msg = st.text_area(
-                    "Message" if current_lang == "EN" else "الرسالة",
-                    placeholder=(
-                        "Write your challenge here..."
-                        if current_lang == "EN"
-                        else "اكتب تحديك هون..."
-                    ),
-                    max_chars=180,
-                    key="banter_message_input"
+                # استخدمنا form + text_input بدل text_area
+                # حتى يكون مريح أكثر على الهاتف ولا يظهر تنبيه Ctrl/Enter.
+                with st.form(
+                    key="banter_send_form",
+                    clear_on_submit=True,
+                    border=False
+                ):
+                    msg = st.text_input(
+                        "Message" if current_lang == "EN" else "الرسالة",
+                        placeholder=(
+                            "Write your challenge here."
+                            if current_lang == "EN"
+                            else "اكتب تحديك هون."
+                        ),
+                        max_chars=180,
+                        key="banter_message_input"
+                    )
+
+                    submitted = st.form_submit_button(
+                        "🚀 Send" if current_lang == "EN" else "🚀 إرسال",
+                        use_container_width=True
+                    )
+
+                if submitted:
+                    clean_msg = str(msg).strip()
+
+                    if not clean_msg:
+                        st.warning(
+                            "Message cannot be empty."
+                            if current_lang == "EN"
+                            else "لا يمكن إرسال رسالة فارغة."
+                        )
+                    else:
+                        ok = save_banter_message(
+                            st.session_state.username,
+                            clean_msg
+                        )
+
+                        if ok:
+                            st.success(
+                                "Message sent."
+                                if current_lang == "EN"
+                                else "تم إرسال الرسالة."
+                            )
+                            st.rerun()
+                        else:
+                            st.error(
+                                "Could not send message."
+                                if current_lang == "EN"
+                                else "تعذر إرسال الرسالة."
+                            )
+
+            st.write("---")
+
+            # ===============================
+            # Messages Feed
+            # ===============================
+            df_chat = load_banter_messages()
+
+            if df_chat.empty:
+                st.info(
+                    "No messages yet."
+                    if current_lang == "EN"
+                    else "لا توجد رسائل بعد."
+                )
+            else:
+                df_chat = df_chat.tail(30).iloc[::-1]
+
+                st.markdown(
+                    "### 🔥 Latest Messages"
+                    if current_lang == "EN"
+                    else "### 🔥 آخر الرسائل"
                 )
 
-                if st.button(
-                        "🚀 Send"
-                        if current_lang == "EN"
-                        else "🚀 إرسال",
-                        use_container_width=True,
-                        key="send_banter_message_btn"
-                ):
-                        clean_msg = str(msg).strip()
+                for _, row in df_chat.iterrows():
+                    username = str(row.get("Username", "Unknown")).strip()
+                    message = str(row.get("Message", "")).strip()
+                    timestamp = str(row.get("Timestamp", "")).strip()
 
-                        if not clean_msg:
-                            st.warning(
-                                "Message cannot be empty."
-                                if current_lang == "EN"
-                                else "لا يمكن إرسال رسالة فارغة."
-                            )
-                        else:
-                            ok = save_banter_message(
-                                st.session_state.username,
-                                clean_msg
-                            )
+                    avatar_path = get_avatar_for_username(username)
 
-                            if ok:
-                                st.success(
-                                    "Message sent."
-                                    if current_lang == "EN"
-                                    else "تم إرسال الرسالة."
-                                )
-                                clear_all_cache()
-                                st.rerun()
-                            else:
-                                st.error(
-                                    "Could not send message."
-                                    if current_lang == "EN"
-                                    else "تعذر إرسال الرسالة."
-                                )
-
-                st.write("---")
-
-                df_chat = load_banter_messages()
-
-                if df_chat.empty:
-                    st.info(
-                        "No messages yet."
-                        if current_lang == "EN"
-                        else "لا توجد رسائل بعد."
-                    )
-                else:
-                    df_chat = df_chat.tail(30).iloc[::-1]
-
-                    st.markdown(
-                        "### 🔥 Latest Messages"
-                        if current_lang == "EN"
-                        else "### 🔥 آخر الرسائل"
-                    )
-
-                    for _, row in df_chat.iterrows():
-                        username = str(row.get("Username", "Unknown"))
-                        message = str(row.get("Message", ""))
-                        timestamp = str(row.get("Timestamp", ""))
-                        
-                        avatar_path = get_avatar_for_username(username)
-
-                        with st.container(border=True):
-                            msg_cols = st.columns([1, 5])
+                    with st.container(border=True):
+                        msg_cols = st.columns([1, 6])
 
                         with msg_cols[0]:
                             if avatar_path:
                                 st.markdown(
-                                    avatar_html(avatar_path, 82),
+                                    avatar_html(avatar_path, 64),
                                     unsafe_allow_html=True
                                 )
+                            else:
+                                st.markdown("👤")
 
                         with msg_cols[1]:
                             st.markdown(f"### {username}")
-                            st.markdown(f"{message}")
+                            st.write(message)
                             st.caption(f"🕒 {timestamp}")
 
         # =================================================
