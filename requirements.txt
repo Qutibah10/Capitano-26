@@ -6,4 +6,3 @@ requests
 python-dotenv
 streamlit-autorefresh
 extra-streamlit-components
-streamlit-cookies-controller
