@@ -1,0 +1,11 @@
+[theme]
+base = "dark"
+
+[client]
+toolbarMode = "minimal"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
