@@ -13,9 +13,20 @@ load_dotenv(dotenv_path=ENV_PATH)
 
 try:
     import streamlit as st
-    FOOTBALL_DATA_TOKEN = st.secrets.get("FOOTBALL_DATA_TOKEN", os.getenv("FOOTBALL_DATA_TOKEN"))
 except Exception:
-    FOOTBALL_DATA_TOKEN = os.getenv("FOOTBALL_DATA_TOKEN")
+    st = None
+
+
+def get_football_data_token():
+    try:
+        if st is not None and "FOOTBALL_DATA_TOKEN" in st.secrets:
+            return st.secrets["FOOTBALL_DATA_TOKEN"]
+    except Exception:
+        pass
+
+    return os.getenv("FOOTBALL_DATA_TOKEN")
+
+
 BASE_URL = "https://api.football-data.org/v4"
 
 
@@ -24,13 +35,15 @@ def fetch_worldcup_matches():
     Fetch World Cup matches from football-data.org.
     Competition code for FIFA World Cup is usually WC.
     """
-    if not TOKEN:
-        raise ValueError("FOOTBALL_DATA_TOKEN is missing. Check your .env file.")
+    token = get_football_data_token()
+
+    if not token:
+        raise ValueError("FOOTBALL_DATA_TOKEN is missing. Add it to Streamlit Secrets or .env file.")
 
     url = f"{BASE_URL}/competitions/WC/matches"
 
     headers = {
-        "X-Auth-Token": TOKEN
+        "X-Auth-Token": token
     }
 
     params = {
@@ -254,13 +267,15 @@ def fetch_worldcup_standings():
     """
     Fetch World Cup group standings from football-data.org.
     """
-    if not TOKEN:
-        raise ValueError("FOOTBALL_DATA_TOKEN is missing. Check your .env file.")
+    token = get_football_data_token()
+
+    if not token:
+        raise ValueError("FOOTBALL_DATA_TOKEN is missing. Add it to Streamlit Secrets or .env file.")
 
     url = f"{BASE_URL}/competitions/WC/standings"
 
     headers = {
-        "X-Auth-Token": TOKEN
+        "X-Auth-Token": token
     }
 
     params = {
