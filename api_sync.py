@@ -11,7 +11,11 @@ ENV_PATH = BASE_DIR / ".env"
 
 load_dotenv(dotenv_path=ENV_PATH)
 
-TOKEN = os.getenv("FOOTBALL_DATA_TOKEN")
+try:
+    import streamlit as st
+    FOOTBALL_DATA_TOKEN = st.secrets.get("FOOTBALL_DATA_TOKEN", os.getenv("FOOTBALL_DATA_TOKEN"))
+except Exception:
+    FOOTBALL_DATA_TOKEN = os.getenv("FOOTBALL_DATA_TOKEN")
 BASE_URL = "https://api.football-data.org/v4"
 
 
