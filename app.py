@@ -6,11 +6,12 @@ import traceback
 import os
 import base64
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 import re
 from streamlit_autorefresh import st_autorefresh
+import extra_streamlit_components as stx
 
 
 from engine import (
@@ -28,6 +29,9 @@ from api_sync import (
 load_dotenv()
 
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
+
+COOKIE_NAME = "capitano26_login"
+SESSION_SECRET = os.getenv("SESSION_SECRET", "capitano26-local-secret")
 
 # =========================================================
 # 1. Page Configuration
@@ -52,6 +56,10 @@ if "username" not in st.session_state:
     st.session_state.username = ""
 if "password_reset_success" not in st.session_state:
     st.session_state.password_reset_success = False
+    
+cookie_manager = stx.CookieManager()    
+
+
 
 # =========================================================
 # 3. Translation
@@ -663,6 +671,69 @@ def clean_username(username):
     username = str(username).strip()
     username = re.sub(r"\s+", " ", username)
     return username
+
+COOKIE_NAME = "capitano26_login"
+
+
+def get_session_secret():
+    try:
+        if "SESSION_SECRET" in st.secrets:
+            return str(st.secrets["SESSION_SECRET"])
+    except Exception:
+        pass
+
+    return os.getenv("SESSION_SECRET", "capitano26-local-secret")
+
+
+def make_login_cookie(username, stored_password_hash):
+    safe_username = clean_username(username).lower()
+    stored_password_hash = str(stored_password_hash)
+
+    raw = f"{safe_username}|{stored_password_hash}|{get_session_secret()}"
+
+    signature = hashlib.sha256(
+        raw.encode("utf-8")
+    ).hexdigest()
+
+    return f"{safe_username}:{signature}"
+
+
+def validate_login_cookie(df_users, token):
+    try:
+        if not token:
+            return None
+
+        token = str(token)
+
+        if ":" not in token:
+            return None
+
+        safe_username, signature = token.split(":", 1)
+
+        user_rows = df_users[
+            df_users["Username"].astype(str).apply(
+                lambda x: clean_username(x).lower()
+            ) == safe_username
+        ]
+
+        if user_rows.empty:
+            return None
+
+        real_username = str(user_rows.iloc[0]["Username"])
+        stored_password_hash = str(user_rows.iloc[0]["Password"])
+
+        expected_token = make_login_cookie(
+            real_username,
+            stored_password_hash
+        )
+
+        if token == expected_token:
+            return real_username
+
+        return None
+
+    except Exception:
+        return None
 
 
 def is_valid_username(username):
@@ -2552,6 +2623,29 @@ st.write("---")
 # =========================================================
 try:
     df_users = load_sheet("Users")
+    
+    if not st.session_state.is_logged_in:
+        saved_token = cookie_manager.get(COOKIE_NAME)
+
+    # أحيانًا CookieManager يحتاج rerun صغير بعد refresh عشان يقرأ الكوكي
+        if not saved_token and not st.session_state.get("cookie_checked_once", False):
+            st.session_state.cookie_checked_once = True
+            st.rerun()
+
+        saved_username = validate_login_cookie(
+            df_users,
+            saved_token
+        )
+
+        if saved_username:
+            st.session_state.is_logged_in = True
+            st.session_state.username = saved_username
+
+            saved_lang = get_user_language(saved_username)
+            if saved_lang in ["EN", "AR"]:
+                st.session_state.lang = saved_lang
+
+            st.rerun()
 
     if not st.session_state.is_logged_in:
         st.markdown(
@@ -2641,12 +2735,31 @@ try:
                             user_match = user_rows
 
                     if not user_match.empty:
+                        real_username = str(user_rows.iloc[0]["Username"])
+                        stored_password = str(user_rows.iloc[0]["Password"])
+                        
                         st.session_state.is_logged_in = True
-                        st.session_state.username = str(user_rows.iloc[0]["Username"])
+                        st.session_state.username = real_username
                         
-                        saved_lang = get_user_language(st.session_state.username)
-                        st.session_state.lang = saved_lang
+                        login_cookie = make_login_cookie(
+                            real_username,
+                            stored_password
+                        )
+
+                        cookie_manager.set(
+                            COOKIE_NAME,
+                            login_cookie,
+                            expires_at=datetime.now() + timedelta(days=30),
+                            key="set_login_cookie"
+                        )
                         
+                        if "cookie_checked_once" in st.session_state:
+                            del st.session_state.cookie_checked_once
+                        
+                        saved_lang = get_user_language(real_username)
+                        if saved_lang in ["EN", "AR"]:
+                            st.session_state.lang = saved_lang
+
                         st.rerun()
                     else:
                         st.error(lang_data["login_err"])
@@ -4240,6 +4353,13 @@ try:
                                     st.session_state.is_logged_in = False
                                     st.session_state.username = ""
                                     
+                                    cookie_manager.delete(
+                                        COOKIE_NAME,
+                                        key="delete_login_cookie_after_account_delete"
+                                    )
+                                    if "cookie_checked_once" in st.session_state:
+                                        del st.session_state.cookie_checked_once
+                                            
                                     if "auto_sync_checked" in st.session_state:
                                         del st.session_state.auto_sync_checked
 
@@ -4274,16 +4394,21 @@ try:
                 #====================================
 
                 if st.button(
-                    lang_data["logout_btn"],
-                    type="primary",
-                    use_container_width=True
+                        lang_data["logout_btn"],
+                        type="primary",
+                        use_container_width=True
                 ):
                     st.session_state.is_logged_in = False
                     st.session_state.username = ""
-
+                    
+                    cookie_manager.delete(
+                        COOKIE_NAME,
+                        key="delete_login_cookie"
+                    )
+                    
                     if "auto_sync_checked" in st.session_state:
                         del st.session_state.auto_sync_checked
-
+                        
                     st.rerun()
 
         # =================================================
