@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 import re
 from streamlit_autorefresh import st_autorefresh
 import extra_streamlit_components as stx
+import time
 
 
 from engine import (
@@ -2628,9 +2629,33 @@ try:
         saved_token = cookie_manager.get(COOKIE_NAME)
 
     # أحيانًا CookieManager يحتاج rerun صغير بعد refresh عشان يقرأ الكوكي
-        if not saved_token and not st.session_state.get("cookie_checked_once", False):
-            st.session_state.cookie_checked_once = True
-            st.rerun()
+        if not st.session_state.is_logged_in:
+            saved_token = cookie_manager.get(COOKIE_NAME)
+
+            cookie_retry_count = st.session_state.get("cookie_retry_count", 0)
+
+            if not saved_token and cookie_retry_count < 2:
+                st.session_state.cookie_retry_count = cookie_retry_count + 1
+                time.sleep(0.5)
+                st.rerun()
+
+            saved_username = validate_login_cookie(
+                df_users,
+                saved_token
+            )
+            
+            if saved_username:
+                st.session_state.is_logged_in = True
+                st.session_state.username = saved_username
+
+                if "cookie_retry_count" in st.session_state:
+                    del st.session_state.cookie_retry_count
+
+                saved_lang = get_user_language(saved_username)
+                if saved_lang in ["EN", "AR"]:
+                    st.session_state.lang = saved_lang
+                    
+                    st.rerun()
 
         saved_username = validate_login_cookie(
             df_users,
@@ -2755,11 +2780,18 @@ try:
                         
                         if "cookie_checked_once" in st.session_state:
                             del st.session_state.cookie_checked_once
-                        
+
                         saved_lang = get_user_language(real_username)
                         if saved_lang in ["EN", "AR"]:
                             st.session_state.lang = saved_lang
+                  
+                        st.success(
+                            "Login saved successfully."
+                            if current_lang == "EN"
+                            else "تم حفظ تسجيل الدخول بنجاح."
+                        )
 
+                        time.sleep(1.2)
                         st.rerun()
                     else:
                         st.error(lang_data["login_err"])
