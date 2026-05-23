@@ -2624,38 +2624,19 @@ st.write("---")
 # =========================================================
 try:
     df_users = load_sheet("Users")
-    
-    if not st.session_state.is_logged_in:
+
+    # استرجاع تسجيل الدخول من الكوكي بعد الريفريش
+    # لا يعمل إذا اللاعب ضغط Logout يدويًا
+    if not st.session_state.is_logged_in and not st.session_state.get("manual_logout", False):
         saved_token = cookie_manager.get(COOKIE_NAME)
 
-    # أحيانًا CookieManager يحتاج rerun صغير بعد refresh عشان يقرأ الكوكي
-        if not st.session_state.is_logged_in:
-            saved_token = cookie_manager.get(COOKIE_NAME)
+        cookie_retry_count = st.session_state.get("cookie_retry_count", 0)
 
-            cookie_retry_count = st.session_state.get("cookie_retry_count", 0)
-
-            if not saved_token and cookie_retry_count < 2:
-                st.session_state.cookie_retry_count = cookie_retry_count + 1
-                time.sleep(0.5)
-                st.rerun()
-
-            saved_username = validate_login_cookie(
-                df_users,
-                saved_token
-            )
-            
-            if saved_username:
-                st.session_state.is_logged_in = True
-                st.session_state.username = saved_username
-
-                if "cookie_retry_count" in st.session_state:
-                    del st.session_state.cookie_retry_count
-
-                saved_lang = get_user_language(saved_username)
-                if saved_lang in ["EN", "AR"]:
-                    st.session_state.lang = saved_lang
-                    
-                    st.rerun()
+        # أحيانًا CookieManager يحتاج rerun صغير بعد refresh عشان يقرأ الكوكي
+        if not saved_token and cookie_retry_count < 2:
+            st.session_state.cookie_retry_count = cookie_retry_count + 1
+            time.sleep(0.5)
+            st.rerun()
 
         saved_username = validate_login_cookie(
             df_users,
@@ -2666,11 +2647,16 @@ try:
             st.session_state.is_logged_in = True
             st.session_state.username = saved_username
 
+            if "cookie_retry_count" in st.session_state:
+                del st.session_state.cookie_retry_count
+
             saved_lang = get_user_language(saved_username)
             if saved_lang in ["EN", "AR"]:
                 st.session_state.lang = saved_lang
 
             st.rerun()
+
+        
 
     if not st.session_state.is_logged_in:
         st.markdown(
@@ -2765,6 +2751,8 @@ try:
                         
                         st.session_state.is_logged_in = True
                         st.session_state.username = real_username
+                        if "manual_logout" in st.session_state:
+                            del st.session_state.manual_logout
                         
                         login_cookie = make_login_cookie(
                             real_username,
@@ -4384,6 +4372,7 @@ try:
                                 if ok:
                                     st.session_state.is_logged_in = False
                                     st.session_state.username = ""
+                                    st.session_state.manual_logout = True
                                     
                                     cookie_manager.delete(
                                         COOKIE_NAME,
@@ -4394,6 +4383,9 @@ try:
                                             
                                     if "auto_sync_checked" in st.session_state:
                                         del st.session_state.auto_sync_checked
+                                        
+                                    if "cookie_retry_count" in st.session_state:
+                                        del st.session_state.cookie_retry_count    
 
                                     clear_all_cache()
                                     
@@ -4403,6 +4395,7 @@ try:
                                         else "تم حذف حسابك بنجاح."
                                     )
 
+                                    time.sleep(1.0)
                                     st.rerun()
 
                                 elif msg == "wrong_password":
@@ -4432,6 +4425,7 @@ try:
                 ):
                     st.session_state.is_logged_in = False
                     st.session_state.username = ""
+                    st.session_state.manual_logout = True
                     
                     cookie_manager.delete(
                         COOKIE_NAME,
@@ -4441,6 +4435,10 @@ try:
                     if "auto_sync_checked" in st.session_state:
                         del st.session_state.auto_sync_checked
                         
+                    if "cookie_retry_count" in st.session_state:
+                        del st.session_state.cookie_retry_count
+
+                    time.sleep(1.0)
                     st.rerun()
 
         # =================================================
