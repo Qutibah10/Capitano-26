@@ -147,7 +147,7 @@ def detect_real_method(match):
     if stage == "GROUP":
         return "GROUP"
 
-    duration = match.get("score", {}).get("duration")
+    duration = str(match.get("score", {}).get("duration", "")).upper().strip()
 
     if duration == "REGULAR":
         return "NORMAL"
@@ -168,6 +168,10 @@ def detect_real_winner(match):
 
     For knockout:
     actual winner team name.
+
+    Safe fallback:
+    If football-data.org does not provide score["winner"],
+    calculate the result from score fields.
     """
     status = map_status(match.get("status", ""))
 
@@ -177,10 +181,10 @@ def detect_real_winner(match):
     stage = detect_stage(match)
     home_name, away_name = get_team_names(match)
 
-    score = match.get("score", {})
-    winner = score.get("winner")
+    score = match.get("score", {}) or {}
+    winner = str(score.get("winner", "")).upper().strip()
 
-    # football-data winner is usually HOME_TEAM, AWAY_TEAM, DRAW
+    # 1) First: use official API winner if available
     if stage == "GROUP":
         if winner == "HOME_TEAM":
             return "A"
@@ -188,14 +192,85 @@ def detect_real_winner(match):
             return "B"
         if winner == "DRAW":
             return "DRAW"
+    else:
+        if winner == "HOME_TEAM":
+            return home_name
+        if winner == "AWAY_TEAM":
+            return away_name
+
+    # 2) Fallback helpers
+    def read_goals(section_name):
+        section = score.get(section_name, {}) or {}
+        home = section.get("home")
+        away = section.get("away")
+
+        try:
+            if home is None or away is None:
+                return None, None
+
+            return int(home), int(away)
+        except Exception:
+            return None, None
+
+    # 3) Group stage fallback from goals
+    if stage == "GROUP":
+        home_goals, away_goals = read_goals("fullTime")
+
+        if home_goals is None or away_goals is None:
+            home_goals, away_goals = read_goals("regularTime")
+
+        if home_goals is None or away_goals is None:
+            return ""
+
+        if home_goals > away_goals:
+            return "A"
+
+        if away_goals > home_goals:
+            return "B"
+
+        return "DRAW"
+
+    # 4) Knockout fallback
+    duration = str(score.get("duration", "")).upper().strip()
+
+    # If it reached penalties, penalties decide the winner
+    if duration == "PENALTY_SHOOTOUT":
+        home_pen, away_pen = read_goals("penalties")
+
+        if home_pen is not None and away_pen is not None:
+            if home_pen > away_pen:
+                return home_name
+
+            if away_pen > home_pen:
+                return away_name
+
+    # Otherwise, fullTime usually decides knockout winner
+    home_goals, away_goals = read_goals("fullTime")
+
+    if home_goals is None or away_goals is None:
+        home_goals, away_goals = read_goals("extraTime")
+
+    if home_goals is None or away_goals is None:
+        home_goals, away_goals = read_goals("regularTime")
+
+    if home_goals is None or away_goals is None:
         return ""
 
-    # Knockout
-    if winner == "HOME_TEAM":
+    if home_goals > away_goals:
         return home_name
 
-    if winner == "AWAY_TEAM":
+    if away_goals > home_goals:
         return away_name
+
+    # If still tied and penalties exist, use them as final fallback
+    home_pen, away_pen = read_goals("penalties")
+
+    if home_pen is not None and away_pen is not None:
+        if home_pen > away_pen:
+            return home_name
+
+        if away_pen > home_pen:
+            return away_name
 
     return ""
 

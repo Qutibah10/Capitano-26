@@ -2017,9 +2017,32 @@ def sync_matchcache_from_api():
 
     if not matches:
         st.warning("No matches received from API.")
-        return
+        return False
 
     ws = get_worksheet("MatchCache")
+
+    # اقرأ MatchCache القديم مباشرة من الشيت، بدون استخدام الكاش
+    # حتى لو صار خطأ أثناء التحديث ما نخسر الإدخالات اليدوية.
+    try:
+        old_records = ws.get_all_records()
+        old_df = pd.DataFrame(old_records)
+        old_df.columns = [str(col).strip() for col in old_df.columns]
+    except Exception:
+        old_df = pd.DataFrame()
+
+    old_map = {}
+
+    if not old_df.empty and "MatchID" in old_df.columns:
+        for _, row in old_df.iterrows():
+            old_match_id = str(row.get("MatchID", "")).strip()
+
+            if not old_match_id:
+                continue
+
+            old_map[old_match_id] = {
+                "RealWinner": str(row.get("RealWinner", "")).strip(),
+                "RealMethod": str(row.get("RealMethod", "")).strip(),
+            }
 
     rows = [[
         "MatchID",
@@ -2037,22 +2060,61 @@ def sync_matchcache_from_api():
     sync_time = now_jordan().strftime("%Y-%m-%d %H:%M:%S")
 
     for m in matches:
+        match_id = str(m.get("MatchID", "")).strip()
+        stage = str(m.get("Stage", "")).upper().strip()
+
+        api_real_winner = str(m.get("RealWinner", "")).strip()
+        api_real_method = str(m.get("RealMethod", "")).strip()
+
+        old_real_winner = old_map.get(match_id, {}).get("RealWinner", "")
+        old_real_method = old_map.get(match_id, {}).get("RealMethod", "")
+
+        # إذا الـ API رجّع فائز نعتمده.
+        # إذا لم يرجع فائز، نحافظ على الإدخال اليدوي الموجود.
+        final_real_winner = api_real_winner if api_real_winner else old_real_winner
+        final_real_method = api_real_method if api_real_method else old_real_method
+
+        if stage == "GROUP":
+            final_real_method = "GROUP"
+
         rows.append([
-            m["MatchID"],
-            m["Stage"],
-            m["Group"],
-            m["TeamA"],
-            m["TeamB"],
-            m["Kickoff"],
-            m["Status"],
-            m["RealWinner"],
-            m["RealMethod"],
+            match_id,
+            m.get("Stage", ""),
+            m.get("Group", ""),
+            m.get("TeamA", ""),
+            m.get("TeamB", ""),
+            m.get("Kickoff", ""),
+            m.get("Status", ""),
+            final_real_winner,
+            final_real_method,
             sync_time
         ])
 
-    ws.clear()
-    ws.update("A1:J" + str(len(rows)), rows)
+    # حماية قبل لمس الشيت
+    if len(rows) <= 1:
+        st.error("Sync aborted: API returned no match rows.")
+        return False
+
+    if any(len(row) != 10 for row in rows):
+        st.error("Sync aborted: invalid MatchCache row shape.")
+        return False
+
+    # مهم: لا نستخدم ws.clear() قبل الكتابة.
+    # نكتب البيانات الجديدة أولًا. إذا فشل التحديث، البيانات القديمة تبقى موجودة.
+    update_range = "A1:J" + str(len(rows))
+    ws.update(update_range, rows)
+
+    # بعد نجاح الكتابة فقط، ننظف أي صفوف زائدة قديمة أسفل البيانات الجديدة
+    try:
+        old_row_count = len(ws.get_all_values())
+
+        if old_row_count > len(rows):
+            ws.batch_clear([f"A{len(rows) + 1}:J{old_row_count}"])
+    except Exception:
+        pass
+
     clear_all_cache()
+    return True
 
 
 def sync_group_standings_from_api():
